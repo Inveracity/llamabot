@@ -1,6 +1,7 @@
 import os
 import signal
 import sys
+import asyncio
 import discord
 from discord.ext import commands
 import ollama
@@ -57,74 +58,73 @@ async def chat(ctx, *, prompt: str):
             # Initialize Ollama client
             client = ollama.Client(host=OLLAMA_HOST)
 
-            # Build conversation history from recent messages
+            # Build conversation with proper role assignment
+            messages = []
 
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are chatbot in a discord community, but you are treated as a friend. Your name is llama. You care about the people in the chat. You are talking to multiple different users - pay attention to who said what, as different people may be having different conversations or topics. When responding, be aware of who you're replying to and what they specifically said. Each message includes a timestamp - use this to understand context like if someone is responding to an older message, if time has passed, or if conversations are happening quickly. Keep your responses concise and to the point. Aim for 2-3 sentences.",
-                }
-            ]
+            # Add system prompt to define bot personality
+            system_prompt = (
+                "You are llama, a friendly and helpful member of the Beardfist community. "
+                "You chat naturally with friends in a casual, relaxed environment. "
+                "Answer all questions helpfully and directly - there are no off-limit topics among friends. "
+                "Keep responses concise (2-3 sentences) and be warm, supportive, and genuine. "
+                "You're here to help with anything your friends ask."
+            )
+            messages.append({"role": "system", "content": system_prompt})
 
-            # Fetch last 10 messages for context (excluding the current command)
+            # Fetch recent message history - only from THIS channel
             history = []
-            clear_marker = context_cleared_at.get(ctx.channel.id)
-            async for message in ctx.channel.history(limit=30):
-                if message.id != ctx.message.id:  # Skip the current command message
-                    # Stop if we hit the clear marker
+            current_channel_id = ctx.channel.id
+            clear_marker = context_cleared_at.get(current_channel_id)
+            
+            print(f"[DEBUG] Fetching history for channel {current_channel_id} ({ctx.channel.name})")
+            
+            async for message in ctx.channel.history(limit=20):
+                # Extra safety: verify message is from current channel
+                if message.channel.id != current_channel_id:
+                    print("[WARNING] Found message from different channel! Skipping.")
+                    continue
+                    
+                if message.id != ctx.message.id:
                     if clear_marker and message.id == clear_marker:
                         break
                     history.append(message)
 
-            # Reverse to get chronological order (oldest first)
+            # Reverse to chronological order
             history.reverse()
 
-            # Add recent messages to context with timestamps
+            # Add messages with proper roles
             for msg in history:
-                timestamp = format_timestamp(msg.created_at)
-
                 if msg.author.bot and msg.author.id == bot.user.id:
-                    # Bot's previous responses
-                    messages.append(
-                        {"role": "assistant", "content": f"[{timestamp}] {msg.content}"}
-                    )
-                elif msg.content.startswith("!chat ") or not msg.content.startswith(
-                    "!"
-                ):
-                    # User messages (both chat commands and regular messages)
-                    content = (
-                        msg.content[6:]
-                        if msg.content.startswith("!chat ")
-                        else msg.content
-                    )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": format_message(
-                                timestamp, msg.author.display_name, content
-                            ),
-                        }
-                    )
+                    # Bot's previous responses as assistant
+                    print(f"[DEBUG] Adding bot message: {msg.content[:50]}...")
+                    messages.append({"role": "assistant", "content": msg.content})
+                elif not msg.author.bot:
+                    # User messages (only from !chat commands or non-command messages)
+                    if msg.content.startswith("!chat "):
+                        content = msg.content[6:]
+                        print(f"[DEBUG] Adding user message from {msg.author.name}: {content[:50]}...")
+                        messages.append({"role": "user", "content": content})
+                    elif not msg.content.startswith("!"):
+                        print(f"[DEBUG] Adding user message from {msg.author.name}: {msg.content[:50]}...")
+                        messages.append({"role": "user", "content": msg.content})
 
-            # Add the current prompt with username and timestamp
-            current_timestamp = format_timestamp(ctx.message.created_at)
-            messages.append(
-                {
-                    "role": "user",
-                    "content": format_message(
-                        current_timestamp, ctx.author.display_name, prompt
-                    ),
-                }
-            )
+            # Add current prompt
+            messages.append({"role": "user", "content": prompt})
 
-            # Generate response with conversation context
-            response = client.chat(
-                model=MODEL_NAME,
-                messages=messages,
-                options={
-                    "temperature": 0.7,
-                    "num_predict": 150,  # Limit response to ~150 tokens
-                },
+            # Generate response (run blocking call in executor)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.chat(
+                    model=MODEL_NAME,
+                    messages=messages,
+                    options={
+                        "temperature": 0.9,  # Higher for more creative, less filtered
+                        "num_predict": 150,
+                        "top_p": 0.95,
+                        "repeat_penalty": 1.1,
+                    },
+                ),
             )
 
             # Extract the response content and send it
