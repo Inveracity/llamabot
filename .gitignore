@@ -10,3 +10,4 @@ wheels/
 .venv
 .env
 ollama_data
+.ruff_cache
