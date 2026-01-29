@@ -55,6 +55,20 @@ def format_message(timestamp, username, content):
     return f"[{timestamp}] {username}: {content}"
 
 
+async def fetch_channel_history(ctx, clear_marker, max_messages):
+    """Fetch message history from channel, respecting clear marker"""
+    history = []
+    async for message in ctx.channel.history(limit=max_messages):
+        if message.id != ctx.message.id:
+            if clear_marker and message.id == clear_marker:
+                break
+            history.append(message)
+
+    # Reverse to chronological order
+    history.reverse()
+    return history
+
+
 async def send_long_message(ctx, message):
     """Send message to Discord, splitting if it exceeds 2000 characters"""
     if len(message) > 2000:
@@ -91,27 +105,11 @@ async def chat(ctx, *, prompt: str):
             messages.append({"role": "system", "content": system_prompt})
 
             # Fetch recent message history - only from THIS channel
-            history = []
             current_channel_id = ctx.channel.id
             clear_marker = context_cleared_at.get(current_channel_id)
-
-            print(
-                f"[DEBUG] Fetching history for channel {current_channel_id} ({ctx.channel.name})"
+            history = await fetch_channel_history(
+                ctx, clear_marker, MAX_CONTEXT_MESSAGES
             )
-
-            async for message in ctx.channel.history(limit=MAX_CONTEXT_MESSAGES):
-                # Extra safety: verify message is from current channel
-                if message.channel.id != current_channel_id:
-                    print("[WARNING] Found message from different channel! Skipping.")
-                    continue
-
-                if message.id != ctx.message.id:
-                    if clear_marker and message.id == clear_marker:
-                        break
-                    history.append(message)
-
-            # Reverse to chronological order
-            history.reverse()
 
             # Add messages with proper roles
             for msg in history:
@@ -131,10 +129,8 @@ async def chat(ctx, *, prompt: str):
             formatted_prompt = f"{ctx.author.name} said: {prompt}"
             messages.append({"role": "user", "content": formatted_prompt})
 
-            print("-----[CONTEXT BEGIN] Constructed Messages for Ollama:")
             for msg in messages:
                 print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
-            print("-----[CONTEXT END]")
 
             # Generate response (run blocking call in executor)
             loop = asyncio.get_event_loop()
