@@ -50,8 +50,7 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 ## Bot Behavior
 
 ### Conversation Context
-- Fetches last 10 messages from channel history for context
-- Includes timestamps in format `[HH:MM]` for temporal awareness
+- Fetches last X messages from channel history for context
 - Preserves username with each message for multi-user conversations
 - Excludes bot commands that don't use `!chat`
 - Bot sees itself as "llama" and acts as a friend in the community

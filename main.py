@@ -36,12 +36,9 @@ def load_system_prompt():
     """Load system prompt from markdown file"""
     try:
         prompt_path = Path(SYSTEM_PROMPT_FILE)
-        prompt = prompt_path.read_text(encoding="utf-8").strip()
-        print(f"[INFO] System Prompt:\n{prompt}")
-        return prompt
+        return prompt_path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         print(f"[WARNING] System prompt file not found: {SYSTEM_PROMPT_FILE}")
-        print("[WARNING] Using empty system prompt.")
         return ""
 
 
@@ -167,17 +164,9 @@ async def info(ctx):
         f"Ollama Host: {OLLAMA_HOST}\n"
         f"Commands:\n"
         f"  `!chat <message>` - Chat with the model\n"
-        f"  `!clear` - Clear the conversation context\n"
         f"  `!info` - Display this information"
     )
     await ctx.send(info_msg)
-
-
-@bot.command(name="clear")
-async def clear_context(ctx):
-    """Clear the conversation context for this channel"""
-    context_cleared_at[ctx.channel.id] = ctx.message.id
-    await ctx.send("🧹 Conversation context cleared! Starting fresh.")
 
 
 def main():
