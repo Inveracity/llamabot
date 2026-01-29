@@ -15,9 +15,12 @@ SYSTEM_PROMPT_FILE = os.getenv("SYSTEM_PROMPT_FILE", "/app/system_prompt.md")
 
 # Ollama generation parameters
 TEMPERATURE = 0.9
-NUM_PREDICT = 300
+NUM_PREDICT = 150
 TOP_P = 0.95
 REPEAT_PENALTY = 1.1
+
+# Chat context
+MAX_CONTEXT_MESSAGES = 5
 
 # Set up bot with intents
 intents = discord.Intents.default()
@@ -96,7 +99,7 @@ async def chat(ctx, *, prompt: str):
                 f"[DEBUG] Fetching history for channel {current_channel_id} ({ctx.channel.name})"
             )
 
-            async for message in ctx.channel.history(limit=10):
+            async for message in ctx.channel.history(limit=MAX_CONTEXT_MESSAGES):
                 # Extra safety: verify message is from current channel
                 if message.channel.id != current_channel_id:
                     print("[WARNING] Found message from different channel! Skipping.")
