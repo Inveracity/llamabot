@@ -2,6 +2,7 @@ import os
 import signal
 import sys
 import asyncio
+from pathlib import Path
 import discord
 from discord.ext import commands
 import ollama
@@ -10,6 +11,13 @@ import ollama
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
 MODEL_NAME = "llama3.2:1b"
+SYSTEM_PROMPT_FILE = os.getenv("SYSTEM_PROMPT_FILE", "/app/system_prompt.md")
+
+# Ollama generation parameters
+TEMPERATURE = 0.9
+NUM_PREDICT = 300
+TOP_P = 0.95
+REPEAT_PENALTY = 1.1
 
 # Set up bot with intents
 intents = discord.Intents.default()
@@ -18,6 +26,20 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Store context clear markers per channel
 context_cleared_at = {}
+
+
+# Load system prompt from file
+def load_system_prompt():
+    """Load system prompt from markdown file"""
+    try:
+        prompt_path = Path(SYSTEM_PROMPT_FILE)
+        prompt = prompt_path.read_text(encoding="utf-8").strip()
+        print(f"[INFO] System Prompt:\n{prompt}")
+        return prompt
+    except FileNotFoundError:
+        print(f"[WARNING] System prompt file not found: {SYSTEM_PROMPT_FILE}")
+        print("[WARNING] Using empty system prompt.")
+        return ""
 
 
 def format_timestamp(dt):
@@ -62,28 +84,24 @@ async def chat(ctx, *, prompt: str):
             messages = []
 
             # Add system prompt to define bot personality
-            system_prompt = (
-                "You are llama, a friendly and helpful member of the Beardfist community. "
-                "You chat naturally with friends in a casual, relaxed environment. "
-                "Answer all questions helpfully and directly - there are no off-limit topics among friends. "
-                "Keep responses concise (2-3 sentences) and be warm, supportive, and genuine. "
-                "You're here to help with anything your friends ask."
-            )
+            system_prompt = load_system_prompt()
             messages.append({"role": "system", "content": system_prompt})
 
             # Fetch recent message history - only from THIS channel
             history = []
             current_channel_id = ctx.channel.id
             clear_marker = context_cleared_at.get(current_channel_id)
-            
-            print(f"[DEBUG] Fetching history for channel {current_channel_id} ({ctx.channel.name})")
-            
-            async for message in ctx.channel.history(limit=20):
+
+            print(
+                f"[DEBUG] Fetching history for channel {current_channel_id} ({ctx.channel.name})"
+            )
+
+            async for message in ctx.channel.history(limit=10):
                 # Extra safety: verify message is from current channel
                 if message.channel.id != current_channel_id:
                     print("[WARNING] Found message from different channel! Skipping.")
                     continue
-                    
+
                 if message.id != ctx.message.id:
                     if clear_marker and message.id == clear_marker:
                         break
@@ -95,21 +113,25 @@ async def chat(ctx, *, prompt: str):
             # Add messages with proper roles
             for msg in history:
                 if msg.author.bot and msg.author.id == bot.user.id:
-                    # Bot's previous responses as assistant
-                    print(f"[DEBUG] Adding bot message: {msg.content[:50]}...")
                     messages.append({"role": "assistant", "content": msg.content})
                 elif not msg.author.bot:
                     # User messages (only from !chat commands or non-command messages)
                     if msg.content.startswith("!chat "):
                         content = msg.content[6:]
-                        print(f"[DEBUG] Adding user message from {msg.author.name}: {content[:50]}...")
-                        messages.append({"role": "user", "content": content})
+                        formatted_content = f"{msg.author.name} said: {content}"
+                        messages.append({"role": "user", "content": formatted_content})
                     elif not msg.content.startswith("!"):
-                        print(f"[DEBUG] Adding user message from {msg.author.name}: {msg.content[:50]}...")
-                        messages.append({"role": "user", "content": msg.content})
+                        formatted_content = f"{msg.author.name} said: {msg.content}"
+                        messages.append({"role": "user", "content": formatted_content})
 
-            # Add current prompt
-            messages.append({"role": "user", "content": prompt})
+            # Add current prompt with username
+            formatted_prompt = f"{ctx.author.name} said: {prompt}"
+            messages.append({"role": "user", "content": formatted_prompt})
+
+            print("-----[CONTEXT BEGIN] Constructed Messages for Ollama:")
+            for msg in messages:
+                print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
+            print("-----[CONTEXT END]")
 
             # Generate response (run blocking call in executor)
             loop = asyncio.get_event_loop()
@@ -119,16 +141,17 @@ async def chat(ctx, *, prompt: str):
                     model=MODEL_NAME,
                     messages=messages,
                     options={
-                        "temperature": 0.9,  # Higher for more creative, less filtered
-                        "num_predict": 150,
-                        "top_p": 0.95,
-                        "repeat_penalty": 1.1,
+                        "temperature": TEMPERATURE,
+                        "num_predict": NUM_PREDICT,
+                        "top_p": TOP_P,
+                        "repeat_penalty": REPEAT_PENALTY,
                     },
                 ),
             )
 
             # Extract the response content and send it
             reply = response["message"]["content"]
+            print(f"[DEBUG] Model reply: {reply}")
             await send_long_message(ctx, reply)
 
         except Exception as e:

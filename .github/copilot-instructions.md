@@ -20,6 +20,7 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 
 ### Key Components
 - `main.py`: Main bot logic with Discord commands
+- `system_prompt.md`: System prompt configuration for bot personality
 - `docker-compose.yml`: Service orchestration
 - `Dockerfile`: Bot container image
 - `ollama-entrypoint.sh`: Ollama service initialization
@@ -43,7 +44,7 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 ### Ollama Integration
 - Initialize client per request: `ollama.Client(host=OLLAMA_HOST)`
 - Use conversation history format: `[{"role": "system|user|assistant", "content": "..."}]`
-- Include system prompt to define bot personality
+- System prompt loaded from `system_prompt.md` file via `load_system_prompt()` function
 - Limit token generation with `num_predict` option
 
 ## Bot Behavior
@@ -55,11 +56,12 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 - Excludes bot commands that don't use `!chat`
 - Bot sees itself as "llama" and acts as a friend in the community
 
-### System Prompt Principles
-- Concise responses (2-3 sentences)
-- Context-aware of multiple users and conversations
-- Uses timestamps to understand conversation flow
-- Friendly and caring tone
+### System Prompt
+- Stored in `system_prompt.md` file
+- Loaded at runtime via `SYSTEM_PROMPT_FILE` environment variable (defaults to `/app/system_prompt.md`)
+- Defines bot as "llama", a friendly member of the Beardfist community
+- Principles: concise responses (2-3 sentences), context-aware, friendly and helpful
+- Can be edited without modifying code - changes take effect on bot restart
 
 ## Common Tasks
 

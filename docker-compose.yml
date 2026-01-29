@@ -23,6 +23,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: beardfist-bot
+    volumes:
+      - ./system_prompt.md:/app/system_prompt.md:ro
     depends_on:
       ollama-small:
         condition: service_healthy
