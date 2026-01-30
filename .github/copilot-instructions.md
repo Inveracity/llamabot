@@ -1,4 +1,4 @@
-# Copilot Instructions for Beardfist Llama Discord Bot
+# Copilot Instructions for Llama Discord Bot
 
 ## Project Overview
 
@@ -53,14 +53,7 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 - Fetches last X messages from channel history for context
 - Preserves username with each message for multi-user conversations
 - Excludes bot commands that don't use `!chat`
-- Bot sees itself as "llama" and acts as a friend in the community
-
-### System Prompt
-- Stored in `system_prompt.md` file
-- Loaded at runtime via `SYSTEM_PROMPT_FILE` environment variable (defaults to `/app/system_prompt.md`)
-- Defines bot as "llama", a friendly member of the Beardfist community
-- Principles: concise responses (2-3 sentences), context-aware, friendly and helpful
-- Can be edited without modifying code - changes take effect on bot restart
+- Bot sees itself as "llama"
 
 ## Common Tasks
 

@@ -1,4 +1,4 @@
-# Beardfist Llama Discord Bot
+# Llama Discord Bot
 
 A Discord bot powered by Llama 3.2 (1B) using Ollama, running in Docker Compose.
 

@@ -151,7 +151,7 @@ async def chat(ctx, *, prompt: str):
 async def info(ctx):
     """Display information about the bot and model"""
     info_msg = (
-        f"🤖 **Beardfist Llama Bot**\n"
+        f"🤖 **Llama Bot**\n"
         f"Model: {MODEL_NAME}\n"
         f"Ollama Host: {OLLAMA_HOST}\n"
         f"Commands:\n"
