@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: beardfist-bot
+    container_name: llama-bot
     volumes:
       - ./system_prompt.md:/app/system_prompt.md:ro
     depends_on:
