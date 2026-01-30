@@ -114,6 +114,9 @@ async def chat(ctx, *, prompt: str):
                 if len(messages) >= MAX_CONTEXT_MESSAGES:
                     break
 
+            # Add the current user prompt
+            messages.append({"role": "user", "content": prompt})
+
             for msg in messages:
                 print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
 
