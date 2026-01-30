@@ -20,7 +20,7 @@ TOP_P = float(os.getenv("LLM_TOP_P", 0.95))
 REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", 1.1))
 
 # Chat context
-MAX_CONTEXT_MESSAGES = 9
+MAX_CONTEXT_MESSAGES = 4
 MAX_HISTORY_MESSAGES = 50
 
 # Set up bot with intents
