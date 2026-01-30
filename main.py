@@ -21,6 +21,7 @@ REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", 1.1))
 
 # Chat context
 MAX_CONTEXT_MESSAGES = 10
+MAX_HISTORY_MESSAGES = 50
 
 # Set up bot with intents
 intents = discord.Intents.default()
@@ -52,10 +53,10 @@ def format_message(timestamp, username, content):
     return f"[{timestamp}] {username}: {content}"
 
 
-async def fetch_channel_history(ctx, max_messages):
+async def fetch_channel_history(ctx, max_history_messages):
     """Fetch message history from channel, respecting clear marker"""
     history = []
-    async for message in ctx.channel.history(limit=max_messages):
+    async for message in ctx.channel.history(limit=max_history_messages):
         if message.id != ctx.message.id:
             history.append(message)
 
@@ -99,7 +100,7 @@ async def chat(ctx, *, prompt: str):
             system_prompt = load_system_prompt()
             messages.append({"role": "system", "content": system_prompt})
 
-            history = await fetch_channel_history(ctx, MAX_CONTEXT_MESSAGES)
+            history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
 
             for msg in history:
                 if msg.author.bot and msg.author.id == bot.user.id:
