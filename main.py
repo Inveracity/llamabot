@@ -20,7 +20,7 @@ TOP_P = float(os.getenv("LLM_TOP_P", 0.95))
 REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", 1.1))
 
 # Chat context
-MAX_CONTEXT_MESSAGES = 10
+MAX_CONTEXT_MESSAGES = 9
 MAX_HISTORY_MESSAGES = 50
 
 # Set up bot with intents
@@ -96,10 +96,6 @@ async def chat(ctx, *, prompt: str):
             # Build conversation with proper role assignment
             messages = []
 
-            # Add system prompt to define bot personality
-            system_prompt = load_system_prompt()
-            messages.append({"role": "system", "content": system_prompt})
-
             history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
 
             for msg in history:
@@ -110,9 +106,14 @@ async def chat(ctx, *, prompt: str):
                         messages.append(
                             {"role": "user", "content": msg.content[len("!chat ") :]}
                         )
-                # When there are 10 messages in total (system + 9), stop adding more
-                if len(messages) >= MAX_CONTEXT_MESSAGES:
-                    break
+
+            # Keep only the most recent messages
+            if len(messages) >= MAX_CONTEXT_MESSAGES:
+                messages = messages[-MAX_CONTEXT_MESSAGES:]
+
+            # Inject system prompt at the beginning
+            system_prompt = load_system_prompt()
+            messages.insert(0, {"role": "system", "content": system_prompt})
 
             # Add the current user prompt
             messages.append({"role": "user", "content": prompt})
