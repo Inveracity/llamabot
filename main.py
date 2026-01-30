@@ -10,17 +10,17 @@ import ollama
 # Bot configuration
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
-MODEL_NAME = "llama3.2:1b"
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:1b")
 SYSTEM_PROMPT_FILE = os.getenv("SYSTEM_PROMPT_FILE", "/app/system_prompt.md")
 
 # Ollama generation parameters
-TEMPERATURE = 0.9
-NUM_PREDICT = 150
-TOP_P = 0.95
-REPEAT_PENALTY = 1.1
+TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", 0.9))
+NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", 150))
+TOP_P = float(os.getenv("LLM_TOP_P", 0.95))
+REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", 1.1))
 
 # Chat context
-MAX_CONTEXT_MESSAGES = 5
+MAX_CONTEXT_MESSAGES = 20
 
 # Set up bot with intents
 intents = discord.Intents.default()
@@ -52,13 +52,11 @@ def format_message(timestamp, username, content):
     return f"[{timestamp}] {username}: {content}"
 
 
-async def fetch_channel_history(ctx, clear_marker, max_messages):
+async def fetch_channel_history(ctx, max_messages):
     """Fetch message history from channel, respecting clear marker"""
     history = []
     async for message in ctx.channel.history(limit=max_messages):
         if message.id != ctx.message.id:
-            if clear_marker and message.id == clear_marker:
-                break
             history.append(message)
 
     # Reverse to chronological order
@@ -101,30 +99,16 @@ async def chat(ctx, *, prompt: str):
             system_prompt = load_system_prompt()
             messages.append({"role": "system", "content": system_prompt})
 
-            # Fetch recent message history - only from THIS channel
-            current_channel_id = ctx.channel.id
-            clear_marker = context_cleared_at.get(current_channel_id)
-            history = await fetch_channel_history(
-                ctx, clear_marker, MAX_CONTEXT_MESSAGES
-            )
+            history = await fetch_channel_history(ctx, MAX_CONTEXT_MESSAGES)
 
-            # Add messages with proper roles
             for msg in history:
                 if msg.author.bot and msg.author.id == bot.user.id:
                     messages.append({"role": "assistant", "content": msg.content})
                 elif not msg.author.bot:
-                    # User messages (only from !chat commands or non-command messages)
                     if msg.content.startswith("!chat "):
-                        content = msg.content[6:]
-                        formatted_content = f"{msg.author.name} said: {content}"
-                        messages.append({"role": "user", "content": formatted_content})
-                    elif not msg.content.startswith("!"):
-                        formatted_content = f"{msg.author.name} said: {msg.content}"
-                        messages.append({"role": "user", "content": formatted_content})
-
-            # Add current prompt with username
-            formatted_prompt = f"{ctx.author.name} said: {prompt}"
-            messages.append({"role": "user", "content": formatted_prompt})
+                        messages.append(
+                            {"role": "user", "content": msg.content[len("!chat ") :]}
+                        )
 
             for msg in messages:
                 print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")

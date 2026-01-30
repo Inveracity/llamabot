@@ -12,10 +12,11 @@ done
 echo "Ollama service is ready!"
 
 # Pull the model if not already present
-echo "Checking for llama3.2:1b model..."
-if ! ollama list | grep -q "llama3.2:1b"; then
-    echo "Pulling llama3.2:1b model..."
-    ollama pull llama3.2:1b
+MODEL_NAME=${MODEL_NAME:-llama3.2:1b}
+echo "Checking for $MODEL_NAME model..."
+if ! ollama list | grep -q "$MODEL_NAME"; then
+    echo "Pulling $MODEL_NAME model..."
+    ollama pull $MODEL_NAME
     echo "Model pulled successfully!"
 else
     echo "Model already exists!"
