@@ -107,14 +107,24 @@ async def chat(ctx, *, prompt: str):
                 history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
 
                 for msg in history:
-                    # Stop if we encounter a delimiter-marked message (context reset)
+                    # Reset context if we encounter a delimiter-marked message
                     if not msg.author.bot and msg.content.startswith(
                         f"!chat {CONTEXT_DELIMITER}"
                     ):
                         print(
-                            f"[DEBUG] Found delimiter at message {msg.id}, stopping history here"
+                            f"[DEBUG] Found delimiter at message {msg.id}, clearing prior history"
                         )
-                        break
+                        messages.clear()
+                        # Include the delimiter message itself (without the delimiter)
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": msg.content[
+                                    len(f"!chat {CONTEXT_DELIMITER}") :
+                                ].strip(),
+                            }
+                        )
+                        continue
 
                     if msg.author.bot and msg.author.id == bot.user.id:
                         messages.append({"role": "assistant", "content": msg.content})
