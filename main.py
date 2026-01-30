@@ -28,8 +28,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Store context clear markers per channel
-context_cleared_at = {}
+# The context delimiter filters out any prior messages, ie. !chat -- <message>
+CONTEXT_DELIMITER = "--"
 
 
 # Load system prompt from file
@@ -93,23 +93,43 @@ async def chat(ctx, *, prompt: str):
             # Initialize Ollama client
             client = ollama.Client(host=OLLAMA_HOST)
 
-            # Build conversation with proper role assignment
+            # prompts starting with "--" should not load any history
+            skip_history = False
+            if prompt.startswith(CONTEXT_DELIMITER):
+                print("[DEBUG] Skipping history for this prompt")
+                skip_history = True
+                prompt = prompt[len(CONTEXT_DELIMITER) :].strip()
+
             messages = []
 
-            history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
+            if not skip_history:
+                # Build conversation with proper role assignment
+                history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
 
-            for msg in history:
-                if msg.author.bot and msg.author.id == bot.user.id:
-                    messages.append({"role": "assistant", "content": msg.content})
-                elif not msg.author.bot:
-                    if msg.content.startswith("!chat "):
-                        messages.append(
-                            {"role": "user", "content": msg.content[len("!chat ") :]}
+                for msg in history:
+                    # Stop if we encounter a delimiter-marked message (context reset)
+                    if not msg.author.bot and msg.content.startswith(
+                        f"!chat {CONTEXT_DELIMITER}"
+                    ):
+                        print(
+                            f"[DEBUG] Found delimiter at message {msg.id}, stopping history here"
                         )
+                        break
 
-            # Keep only the most recent messages
-            if len(messages) >= MAX_CONTEXT_MESSAGES:
-                messages = messages[-MAX_CONTEXT_MESSAGES:]
+                    if msg.author.bot and msg.author.id == bot.user.id:
+                        messages.append({"role": "assistant", "content": msg.content})
+                    elif not msg.author.bot:
+                        if msg.content.startswith("!chat "):
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": msg.content[len("!chat ") :],
+                                }
+                            )
+
+                # Keep only the most recent messages
+                if len(messages) >= MAX_CONTEXT_MESSAGES:
+                    messages = messages[-MAX_CONTEXT_MESSAGES:]
 
             # Inject system prompt at the beginning
             system_prompt = load_system_prompt()
@@ -151,7 +171,7 @@ async def chat(ctx, *, prompt: str):
 async def info(ctx):
     """Display information about the bot and model"""
     info_msg = (
-        f"🤖 **Llama Bot**\n"
+        f"**Llama Bot**\n"
         f"Model: {MODEL_NAME}\n"
         f"Ollama Host: {OLLAMA_HOST}\n"
         f"Commands:\n"
