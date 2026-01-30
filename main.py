@@ -20,7 +20,7 @@ TOP_P = float(os.getenv("LLM_TOP_P", 0.95))
 REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", 1.1))
 
 # Chat context
-MAX_CONTEXT_MESSAGES = 20
+MAX_CONTEXT_MESSAGES = 10
 
 # Set up bot with intents
 intents = discord.Intents.default()
@@ -109,6 +109,9 @@ async def chat(ctx, *, prompt: str):
                         messages.append(
                             {"role": "user", "content": msg.content[len("!chat ") :]}
                         )
+                # When there are 10 messages in total (system + 9), stop adding more
+                if len(messages) >= MAX_CONTEXT_MESSAGES:
+                    break
 
             for msg in messages:
                 print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
