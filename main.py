@@ -33,13 +33,15 @@ CONTEXT_DELIMITER = "--"
 
 
 # Load system prompt from file
-def load_system_prompt():
+def load_system_prompt(prompt_file=None):
     """Load system prompt from markdown file"""
     try:
-        prompt_path = Path(SYSTEM_PROMPT_FILE)
+        if prompt_file is None:
+            prompt_file = SYSTEM_PROMPT_FILE
+        prompt_path = Path(prompt_file)
         return prompt_path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
-        print(f"[WARNING] System prompt file not found: {SYSTEM_PROMPT_FILE}")
+        print(f"[WARNING] System prompt file not found: {prompt_file}")
         return ""
 
 
@@ -75,6 +77,98 @@ async def send_long_message(ctx, message):
         await ctx.send(message)
 
 
+async def chat_with_llm(ctx, prompt, command_name="chat", prompt_file=None):
+    """Core chat functionality that can be used by different commands
+
+    Args:
+        ctx: Discord context
+        prompt: User's message
+        command_name: Command prefix ("chat" or "chad")
+        prompt_file: Path to system prompt file (defaults to SYSTEM_PROMPT_FILE)
+    """
+    # Initialize Ollama client
+    client = ollama.Client(host=OLLAMA_HOST)
+
+    # prompts starting with "--" should not load any history
+    skip_history = False
+    if prompt.startswith(CONTEXT_DELIMITER):
+        print("[DEBUG] Skipping history for this prompt")
+        skip_history = True
+        prompt = prompt[len(CONTEXT_DELIMITER) :].strip()
+
+    messages = []
+
+    if not skip_history:
+        # Build conversation with proper role assignment
+        history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
+
+        for msg in history:
+            # Reset context if we encounter a delimiter-marked message
+            if not msg.author.bot and msg.content.startswith(
+                f"!{command_name} {CONTEXT_DELIMITER}"
+            ):
+                print(
+                    f"[DEBUG] Found delimiter at message {msg.id}, clearing prior history"
+                )
+                messages.clear()
+                # Include the delimiter message itself (without the delimiter)
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": msg.content[
+                            len(f"!{command_name} {CONTEXT_DELIMITER}") :
+                        ].strip(),
+                    }
+                )
+                continue
+
+            if msg.author.bot and msg.author.id == bot.user.id:
+                messages.append({"role": "assistant", "content": msg.content})
+            elif not msg.author.bot:
+                if msg.content.startswith(f"!{command_name} "):
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": msg.content[len(f"!{command_name} ") :],
+                        }
+                    )
+
+        # Keep only the most recent messages
+        if len(messages) >= MAX_CONTEXT_MESSAGES:
+            messages = messages[-MAX_CONTEXT_MESSAGES:]
+
+    # Inject system prompt at the beginning
+    system_prompt = load_system_prompt(prompt_file)
+    messages.insert(0, {"role": "system", "content": system_prompt})
+
+    # Add the current user prompt
+    messages.append({"role": "user", "content": prompt})
+
+    for msg in messages:
+        print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
+
+    # Generate response (run blocking call in executor)
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: client.chat(
+            model=MODEL_NAME,
+            messages=messages,
+            options={
+                "temperature": TEMPERATURE,
+                "num_predict": NUM_PREDICT,
+                "top_p": TOP_P,
+                "repeat_penalty": REPEAT_PENALTY,
+            },
+        ),
+    )
+
+    # Extract the response content and send it
+    reply = response["message"]["content"]
+    print(f"[DEBUG] Model reply: {reply}")
+    await send_long_message(ctx, reply)
+
+
 @bot.event
 async def on_ready():
     """Event handler for when bot is ready"""
@@ -90,91 +184,26 @@ async def chat(ctx, *, prompt: str):
     """
     async with ctx.typing():
         try:
-            # Initialize Ollama client
-            client = ollama.Client(host=OLLAMA_HOST)
-
-            # prompts starting with "--" should not load any history
-            skip_history = False
-            if prompt.startswith(CONTEXT_DELIMITER):
-                print("[DEBUG] Skipping history for this prompt")
-                skip_history = True
-                prompt = prompt[len(CONTEXT_DELIMITER) :].strip()
-
-            messages = []
-
-            if not skip_history:
-                # Build conversation with proper role assignment
-                history = await fetch_channel_history(ctx, MAX_HISTORY_MESSAGES)
-
-                for msg in history:
-                    # Reset context if we encounter a delimiter-marked message
-                    if not msg.author.bot and msg.content.startswith(
-                        f"!chat {CONTEXT_DELIMITER}"
-                    ):
-                        print(
-                            f"[DEBUG] Found delimiter at message {msg.id}, clearing prior history"
-                        )
-                        messages.clear()
-                        # Include the delimiter message itself (without the delimiter)
-                        messages.append(
-                            {
-                                "role": "user",
-                                "content": msg.content[
-                                    len(f"!chat {CONTEXT_DELIMITER}") :
-                                ].strip(),
-                            }
-                        )
-                        continue
-
-                    if msg.author.bot and msg.author.id == bot.user.id:
-                        messages.append({"role": "assistant", "content": msg.content})
-                    elif not msg.author.bot:
-                        if msg.content.startswith("!chat "):
-                            messages.append(
-                                {
-                                    "role": "user",
-                                    "content": msg.content[len("!chat ") :],
-                                }
-                            )
-
-                # Keep only the most recent messages
-                if len(messages) >= MAX_CONTEXT_MESSAGES:
-                    messages = messages[-MAX_CONTEXT_MESSAGES:]
-
-            # Inject system prompt at the beginning
-            system_prompt = load_system_prompt()
-            messages.insert(0, {"role": "system", "content": system_prompt})
-
-            # Add the current user prompt
-            messages.append({"role": "user", "content": prompt})
-
-            for msg in messages:
-                print(f"[DEBUG] Message Role: {msg['role']}, Content: {msg['content']}")
-
-            # Generate response (run blocking call in executor)
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: client.chat(
-                    model=MODEL_NAME,
-                    messages=messages,
-                    options={
-                        "temperature": TEMPERATURE,
-                        "num_predict": NUM_PREDICT,
-                        "top_p": TOP_P,
-                        "repeat_penalty": REPEAT_PENALTY,
-                    },
-                ),
-            )
-
-            # Extract the response content and send it
-            reply = response["message"]["content"]
-            print(f"[DEBUG] Model reply: {reply}")
-            await send_long_message(ctx, reply)
-
+            await chat_with_llm(ctx, prompt, command_name="chat")
         except Exception as e:
             await ctx.send(f"Error: {str(e)}")
             print(f"Error in chat command: {e}")
+
+
+@bot.command(name="chad")
+async def chad(ctx, *, prompt: str):
+    """
+    Chat with the Llama model in Chad mode (more humorous responses)
+    Usage: !chad <your message>
+    """
+    async with ctx.typing():
+        try:
+            await chat_with_llm(
+                ctx, prompt, command_name="chad", prompt_file="/app/chad_prompt.md"
+            )
+        except Exception as e:
+            await ctx.send(f"Error: {str(e)}")
+            print(f"Error in chad command: {e}")
 
 
 @bot.command(name="info")
@@ -186,6 +215,7 @@ async def info(ctx):
         f"Ollama Host: {OLLAMA_HOST}\n"
         f"Commands:\n"
         f"  `!chat <message>` - Chat with the model\n"
+        f"  `!chad <message>` - Chat in Chad mode (more humorous)\n"
         f"  `!info` - Display this information"
     )
     await ctx.send(info_msg)
