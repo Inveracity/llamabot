@@ -26,6 +26,7 @@ services:
     container_name: llama-bot
     volumes:
       - ./system_prompt.md:/app/system_prompt.md:ro
+      - ./chad_prompt.md:/app/chad_prompt.md:ro
     depends_on:
       ollama-small:
         condition: service_healthy
