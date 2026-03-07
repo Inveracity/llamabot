@@ -12,7 +12,7 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_MAX_QUEUE=1
       - OLLAMA_KEEP_ALIVE=30s
-      - OLLAMA_CONTEXT_LENGTH=512
+      - OLLAMA_CONTEXT_LENGTH=256
       - OLLAMA_NUM_THREAD=1
       - OLLAMA_FLASH_ATTENTION=0
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
