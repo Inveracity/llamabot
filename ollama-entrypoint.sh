@@ -12,7 +12,7 @@ done
 echo "Ollama service is ready!"
 
 # Pull the model if not already present
-MODEL_NAME=${MODEL_NAME:-llama3.2:1b}
+MODEL_NAME=${MODEL_NAME:-qwen3.5:0.8b}
 echo "Checking for $MODEL_NAME model..."
 if ! ollama list | grep -q "$MODEL_NAME"; then
     echo "Pulling $MODEL_NAME model..."

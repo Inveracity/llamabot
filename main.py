@@ -10,7 +10,7 @@ import ollama
 # Bot configuration
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:1b")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen3.5:0.8b")
 SYSTEM_PROMPT_FILE = os.getenv("SYSTEM_PROMPT_FILE", "/app/system_prompt.md")
 
 # Ollama generation parameters

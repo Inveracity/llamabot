@@ -10,7 +10,7 @@ services:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_MAX_QUEUE=1
-      - MODEL_NAME=${MODEL_NAME:-llama3.2:1b}
+      - MODEL_NAME=${MODEL_NAME:-qwen3.5:0.8b}
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -34,5 +34,5 @@ services:
       - .env
     environment:
       - OLLAMA_HOST=http://ollama-small:11434
-      - MODEL_NAME=${MODEL_NAME:-llama3.2:1b}
+      - MODEL_NAME=${MODEL_NAME:-qwen3.5:0.8b}
     restart: unless-stopped

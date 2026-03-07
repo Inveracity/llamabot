@@ -8,7 +8,7 @@ This is a Discord bot that integrates with Ollama to provide LLM chat capabiliti
 
 - **Language**: Python 3.12+
 - **Framework**: discord.py 2.6.4+
-- **LLM**: Ollama (llama3.2:1b model)
+- **LLM**: Ollama (qwen3.5:0.8b model)
 - **Containerization**: Docker & Docker Compose
 - **Dependency Management**: uv (pyproject.toml)
 

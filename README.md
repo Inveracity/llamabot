@@ -30,7 +30,7 @@ A Discord bot powered by Llama 3.2 (1B) using Ollama, running in Docker Compose.
 
 4. **Pull the Llama model** (first time only)
    ```bash
-   docker exec ollama ollama pull llama3.2:1b
+   docker exec ollama ollama pull qwen3.5:0.8b
    ```
 
 5. **Check logs**
@@ -73,7 +73,7 @@ To run locally without Docker:
 
 2. Ensure Ollama is running and has the model:
    ```bash
-   ollama pull llama3.2:1b
+   ollama pull qwen3.5:0.8b
    ```
 
 3. Set environment variables:
@@ -90,5 +90,5 @@ To run locally without Docker:
 ## Troubleshooting
 
 - **Bot not responding**: Check logs with `docker-compose logs bot`
-- **Model not found**: Run `docker exec ollama ollama pull llama3.2:1b`
+- **Model not found**: Run `docker exec ollama ollama pull qwen3.5:0.8b`
 - **Connection issues**: Ensure Ollama service is healthy with `docker-compose ps`
